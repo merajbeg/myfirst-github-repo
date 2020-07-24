@@ -1,0 +1,1428 @@
+openapi: 3.0.0
+info:
+  description: >-
+    API to book credit card account to external servicing provider for both new
+    and existing customer. A new customer, first customer is originated,then
+    accounts are created and linked to the created customer. If customer is an
+    existing customer, accounts are created and linked to existing customer.
+    Subject to change.
+  version: 0.1.0-oas3
+  title: Credit Card Booking Specification
+tags:
+  - name: Booking
+    description: API to originate new accounts for existing and new customer
+paths:
+  /credit-charge-card/credit-charge-card-fulfillment-arrangement/requisition:
+    post:
+      tags:
+        - Booking
+      summary: Create new credit card accounts
+      description: >-
+        Creating new sole prop accounts for both existing and new customer. If
+        it is a new customer, first customer is originated and then accounts are
+        created and linked to the created customer.
+      operationId: createAccount
+      parameters:
+        - name: X-IBM-Client-Id
+          in: header
+          description: >-
+            ClientId issued to consumer('AOP') in advance, which has
+            subscription to OBP Sole Prop Origination API.
+          required: true
+          schema:
+            type: string
+        - name: X-IBM-Client-Secret
+          in: header
+          description: >-
+            Client Secret issued to consumer('AOP') in advance, which has
+            subscription to OBP Sole Prop Origination API.
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: >-
+            HTTP Status Code 201 indicates that all accounts created
+            successfully.The status of the response body in this case would
+            indicate as SUCCESS. The `data` element of the response body would
+            contain, details about the origination of particular account.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: >-
+                      Status will be SUCCESS if the account is originated
+                      successfully.
+                    enum:
+                      - SUCCESS
+                  data:
+                    $ref: '#/components/schemas/AccountOriginationResponse'
+        '202':
+          description: >-
+            HTTP Status Code 202 indicates that request has been accepted for
+            processing.The status of the response body in this case would
+            indicate as PARTIAL. The `data` element of the response body would
+            contain, details about the origination of particular  account and
+            `errors` element indicate the list of errors from down stream
+            systems.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: >-
+                      Status will be PARTIAL as the request has been accepted
+                      for processing.
+                    enum:
+                      - PARTIAL
+                  data:
+                    $ref: '#/components/schemas/AccountOriginationResponse'
+                  errors:
+                    $ref: '#/components/schemas/ErrorDtoWithDownstreamErrors'
+        '400':
+          description: >-
+            Could be due to various client error(s) like,
+
+            1)Input parameters (body params, header params) are malformed or
+            invalid. One or more required parameters are missing in the request.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: failure status
+                    enum:
+                      - ERROR
+                  errors:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ErrorDto'
+        '401':
+          description: >-
+            Header parameters X-IBM-Client-Id and X-IBM-Client-Secret are
+            missing or holding invalid values.
+        '404':
+          description: Provided url does not point to an existing resource in the server.
+        '500':
+          description: Server failed to fulfill a request.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    description: failure status
+                    enum:
+                      - ERROR
+                  errors:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ErrorDtoWithDownstreamErrors'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountOriginationRequest'
+        required: true
+servers:
+  - url: 'https://fnd-origination-hb-obw-test-qa.ocp.qa.pncint.net/'
+components:
+  schemas:
+    AccountOriginationRequest:
+      type: object
+      required:
+        - partyInfo
+        - requestId
+      properties:
+        requestId:
+          type: string
+          example: 548c70fa-de72-4931-b371-d4327c7275dc
+          description: Unique identifier for each account origination.
+        objectType:
+          type: string
+          description: Indicate the type of object to be originated. Such as account.
+          default: account
+        type:
+          type: string
+          description: >-
+            Ownership of the account. whether account creation is for Invidual
+            or Commercial.
+          default: INDIVIDUAL
+          enum:
+            - INDIVIDUAL
+            - COMMERCIAL
+        subType:
+          type: string
+          description: >-
+            the COR subownership code representing what type of personal or
+            business account is being opened
+          enum:
+            - REGULAR
+            - PROPRIETORSHIP
+            - PARTNERSHIP
+            - LLC
+        withholdingCode:
+          type: string
+          example: 'YES'
+          description: Withholding code
+        accountNumber:
+          type: string
+          example: '4593271947'
+          description: Account number or contract identifier.
+          maxLength: 15
+        accountZip:
+          type: string
+          example: '17070'
+          description: 'zip code of the branch, where account to be originated.'
+          maxLength: 5
+        accountState:
+          type: string
+          example: PA
+          description: 'statePprovince of the branch, where account to be origianted.'
+        fiIdentification:
+          type: string
+          example: '32'
+          description: Bank identifier
+        branch:
+          type: string
+          example: 08773
+          description: Branch details in which accounts being created.
+        pricingRegion:
+          type: string
+          example: P061
+          description: Pricing Region.
+        market:
+          type: string
+          example: market
+          description: Market.
+        costCenter:
+          type: string
+          example: 0008773
+          description: Cost Center.
+        routingNumber:
+          type: string
+          example: '42728474'
+          description: Routing number of the newly created account.
+        applicationState:
+          type: string
+          example: NEW
+          description: >-
+            State of the Application/Account - This field is used by the API for
+            resubmission scenarios.
+        partyInfo:
+          type: array
+          items:
+            $ref: '#/components/schemas/PartyInfo'
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/Product'
+        funding:
+          $ref: '#/components/schemas/Funding'
+        accountExtension:
+          $ref: '#/components/schemas/AccountExtension'
+        callbacks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Callback'
+      example:
+        requestId: 548c70fa-de72-4931-b371-d4327c7275dc
+        objectType: account
+        type: INDIVIDUAL
+        subType: REGULAR
+        accountState: PA
+        accountZip: '17070'
+        accountNumber: '4593271947'
+        withholdingCode: 'yes'
+        branch: branch
+        pricingRegion: H010
+        market: market
+        costCenter: 008773
+        routingNumber: '42728474'
+        fiIdentification: PNC
+        applicationState: NEW
+        partyInfo:
+          - partyType: PERSON
+            partyId: CIF key
+            identity:
+              - identityType: SSN
+                additionalInfo: PA
+                identityValue: 111-22-3333
+                issueDate: '2010-07-19T00:00:00.000Z'
+                expirationDate: '2020-07-19T00:00:00.000Z'
+            addresses:
+              - addressType: MAILING
+                addressLine1: 100 STANWIX ST
+                addressLine2: APT C
+                addressLine3: Address line 3
+                addressLine4: Address line 4
+                addressLine5: address line 5
+                stateProvince: PA
+                city: Pittsburgh
+                zip: 12345-1234
+                country: USA
+            contactInfo:
+              phone:
+                - number: 215-215-2155
+                  phoneType: HOME
+                - number: 215-215-2155
+                  phoneType: CELL
+              email:
+                - address: email@pnc.com
+                  emailType: PRIMARY
+                - address: email@pnc.com
+                  emailType: SECONDARY
+            partyExtension:
+              firstName: Rohit
+              lastName: Sharma
+              middleInitial: A
+              suffix: Jr
+              dateOfBirth: '1989-06-14T00:00:00.000Z'
+              pin: '1111'
+              debitCardPIN: '1234'
+              accountInitiator: true
+              partyOwnership: OWNER
+              kycFlag: 'Y'
+              fcraFlag: 'N'
+              realTimeIDC: 000000000025798
+              existingAccounts: 'N'
+              ewsScreenedFlag: true
+              bankEmployee: 'N'
+              universityCode: '4506698221'
+              employeeCode: PL05232
+              ewsRiskScore:
+                - riskScoreType: riskScoreType
+                  score: 5055
+                  lowScoreRange: 0
+                  highScoreRange: 8000
+              employmentInfo:
+                employer: PNC Fin
+                occupation: Clerk
+                startDate: '1990-10-10T00:00:00.000Z'
+                salary: '100000'
+            businessInfo:
+              businessName: PNC Fin
+              originationDate: '1950-06-06T00:00:00.000Z'
+              classification: business type classification
+              publiclyTraded: false
+              offerATMServices: false
+              offerGamblingServices: false
+              moneyServicesOption:
+                msbRevenuePercentage: '5'
+                allowCashTransactions: false
+                allowDomesticWireTransfers: false
+                allowInternationalWireTransfer: false
+                allowCheckCashing: false
+                offerMonetaryInstruments: false
+                allowWireTransfers: false
+                allowForex: false
+        products:
+          - code: DDA
+            subProductCode: F1
+            packageCode: VR
+            promotionCode: TEST01
+        funding:
+          initialDeposit: 1000
+          transferFromCode: transferFromCode
+          source: External Account
+          externalAccount:
+            fundingRoutingNumber: '4965890543'
+            fundingAccountNumber: '4965890543'
+          creditCard:
+            expirationYear: '2021'
+            number: '496589054335677'
+            name: Rohit Sharma
+            expirationMonth: '6'
+            brand: Visa
+        accountExtension:
+          submittedByUserId: PP16194
+          signatureCardOption: P
+        callbacks:
+          - uri: 'https://hostName/applicationAccountCallBack'
+    PartyInfo:
+      type: object
+      required:
+        - addresses
+        - contactInfo
+        - emboss
+        - identity
+        - nbrCards
+        - partyExtension
+        - partyType
+        - relType
+      properties:
+        nbrCards:
+          type: integer
+          example: 3
+          description: Number of cards desired.
+        emboss:
+          type: string
+          example: APPL NAME
+          description: Type of embossing on the card.
+        custSeq:
+          type: string
+          example: Primary
+          description: Type of account holder.
+        relType:
+          type: string
+          example: Self
+          description: Relation to account holder.
+        partyType:
+          type: string
+          example: PERSON
+          description: Type of party.
+          default: PERSON
+          enum:
+            - PERSON
+            - DELEGATE
+            - BUSINESS
+            - AUTHORIZER
+        partyId:
+          type: string
+          example: CIF key
+          description: >-
+            CIF key of party who is opening new account. If the CIF key does not
+            come as part of the request, the customer is considered as new to
+            bank and both customer and account will be originated
+        identity:
+          type: array
+          items:
+            $ref: '#/components/schemas/PartyIdentity'
+        addresses:
+          type: array
+          items:
+            $ref: '#/components/schemas/Address'
+        contactInfo:
+          $ref: '#/components/schemas/ContactInfo'
+        partyExtension:
+          $ref: '#/components/schemas/PartyExtension'
+        businessInfo:
+          $ref: '#/components/schemas/BusinessInfo'
+      description: Details of the party tagged to the newly created account.
+      example:
+        firstName: Rohit
+        lastName: Sharma
+        addresses:
+          - zip: 12345-1234
+            country: USA
+            city: Pittsburgh
+            addressType: MAILING
+            addressLine1: 100 STANWIX ST
+            stateProvince: PA
+            addressLine2: APT C
+            addressLine3: Address line 3
+            addressLine4: Address line 4
+            addressLine5: address line 5
+          - zip: 12345-1234
+            country: USA
+            city: Pittsburgh
+            addressType: MAILING
+            addressLine1: 100 STANWIX ST
+            stateProvince: PA
+            addressLine2: APT C
+            addressLine3: Address line 3
+            addressLine4: Address line 4
+            addressLine5: address line 5
+        middleInitial: A
+        contactInfo:
+          phone:
+            - number: 215-215-2155
+              phoneType: HOME
+            - number: 215-215-2155
+              phoneType: HOME
+          email:
+            - address: email@pnc.com
+              emailType: PRIMARY
+            - address: email@pnc.com
+              emailType: PRIMARY
+        identity:
+          - identityType: SSN
+            additionalInfo: PA
+            identityValue: 111-22-3333
+            issueDate: '2010-07-19T00:00:00.000Z'
+            expirationDate: '2020-07-19T00:00:00.000Z'
+          - identityType: SSN
+            additionalInfo: PA
+            identityValue: 111-22-3333
+            issueDate: '2010-07-19T00:00:00.000Z'
+            expirationDate: '2020-07-19T00:00:00.000Z'
+        partyExtension:
+          existingAccounts: 'N'
+          bankEmployee: 'N'
+          kycFlag: 'Y'
+          accountInitiator: true
+          debitCardPIN: '1234'
+          universityCode: '4506698221'
+          employeeCode: PL05232
+          ewsRiskScore:
+            - riskScoreType: riskScoreType
+              score: 5055
+              lowScoreRange: 0
+              highScoreRange: 8000
+            - riskScoreType: riskScoreType
+              score: 5055
+              lowScoreRange: 0
+              highScoreRange: 8000
+          pin: '1111'
+          partySubOwnership: PRIMARY
+          realTimeIDC: 000000000025798
+          fcraFlag: 'N'
+          ewsScreenedFlag: true
+        dateOfBirth: '1989-06-14T00:00:00.000Z'
+        partyType: personal
+        partyId: CIF key
+        suffix: Jr
+    Product:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          example: DDA
+          description: The product Code.
+        subProductCode:
+          type: string
+          example: null
+          description: Sub productcode of account being created.
+        packageCode:
+          type: string
+          example: VR
+          description: >-
+            Package code like creating group of products together in single
+            request.
+        promotionCode:
+          type: string
+          example: TEST01
+          description: Promotion code used for new acount creation.
+      description: >-
+        The product array for sole prop that contains Product information like
+        product code, subProductCode, packageCode, and promoCode.
+      example:
+        subProductCode: F5
+        code: DDA
+        packageCode: PD
+        promotionCode: TEST01
+    PartyIdentity:
+      type: object
+      required:
+        - identityType
+        - identityValue
+        - verifId
+      properties:
+        identityType:
+          type: string
+          example: SSN
+          description: Identity proof of the party who is opening an account.
+          enum:
+            - SSN
+            - TAX_ID
+            - DRIVERS_LICENSE
+            - MILITARY_ID
+            - STATE_ISSUED_ID
+        identityValue:
+          type: string
+          example: 111-22-3333
+          description: >-
+            Identity proof value(SSN no,ITIN no, Drivers license no) of the
+            party who is opening an account.
+        verifId:
+          type: string
+          example: Mom's last name
+          description: A secret token to identify customer
+        additionalInfo:
+          type: string
+          example: PA
+          description: >-
+            Supporting info of issued identity, e.g. state for Driver's License,
+            agency for Military ID
+        issueDate:
+          type: string
+          format: date(yyyy-MM-dd)
+          example: '2010-07-19T00:00:00.000Z'
+          description: Issued date of the identity
+        expirationDate:
+          type: string
+          format: date(yyyy-MM-dd)
+          example: '2020-07-19T00:00:00.000Z'
+          description: Expiration date of the identity
+      description: Identities of party provided for account creation.
+      example:
+        identityType: SSN
+        additionalInfo: PA
+        identityValue: 111-22-3333
+        issueDate: '2010-07-19T00:00:00.000Z'
+        expirationDate: '2020-07-19T00:00:00.000Z'
+    EmploymentInfo:
+      type: object
+      required:
+        - employeeType
+        - employer
+        - employerPhone
+        - monthsEmployed
+        - status
+        - yearsEmployed
+      properties:
+        custSeq:
+          type: string
+          example: Primary
+          description: 'Type of employment income i.e. primary,secondary'
+          maxLength: 20
+        status:
+          type: string
+          example: Current
+          description: Recency of employer i.e. Current or Previous.
+          maxLength: 10
+        employer:
+          type: string
+          example: US Postal Office
+          description: Name of employer
+          maxLength: 30
+        employerPhone:
+          type: string
+          example: '6329934893'
+          description: Official phone number for that employer.
+          maxLength: 18
+        yearsEmployed:
+          type: integer
+          example: 10
+          description: Number of years at this employer.
+        monthsEmployed:
+          type: integer
+          example: 11
+          description: Number of months at this employer
+        occupation:
+          type: string
+          example: Mailman
+          description: Occupation of the party.
+          maxLength: 30
+        employeeType:
+          type: integer
+          example: 1
+          description: Unclear
+        startDate:
+          type: string
+          format: date(YYYY-MM-dd)
+          example: '2010-12-15T00:00:00.000Z'
+          description: Date on which the party started working with employer.
+        salary:
+          type: number
+          example: 100000
+          description: Yearly salary of the party.
+      description: Employment details of the party.
+      example:
+        occupation: Mailman
+        employer: US Post Office
+        salary: 100000
+        startDate: '2010-12-15T00:00:00.000Z'
+    PartyExtension:
+      type: object
+      required:
+        - amtReqLmt
+        - dateOfBirth
+        - employmentInfo
+        - firstName
+        - languageCode
+        - lastName
+      properties:
+        languageCode:
+          type: string
+          example: ENU
+          description: UPS language code.
+          maxLength: 3
+        amtReqLmt:
+          type: number
+          example: 5000
+          description: The maximum limit requested for the line of credit.
+        firstName:
+          type: string
+          example: Rohit
+          description: First name of party.
+          minLength: 1
+          maxLength: 20
+        lastName:
+          type: string
+          example: Sharma
+          description: Last name of party.
+          minLength: 1
+          maxLength: 20
+        middleInitial:
+          type: string
+          example: A
+          description: Middle initial of party.
+        suffix:
+          type: string
+          example: Jr
+          description: suffix of party.
+        dateOfBirth:
+          type: string
+          format: date(yyyy-MM-dd)
+          example: '1989-06-14T00:00:00.000Z'
+          description: Birth date of party according to government records.
+        pin:
+          type: string
+          example: '1111'
+          description: >-
+            Will be either PIN (4 digit number), or scrambled PIN(24 character
+            string), that will be used for IVR or Online banking.
+        debitCardPIN:
+          type: string
+          example: '1234'
+          description: Will be 4 digit number.
+        accountInitiator:
+          type: boolean
+          example: true
+          description: Identify the initiator of the account creation request.
+        partyOwnership:
+          type: string
+          example: OWNER
+          description: the person's  relationship to the account
+          enum:
+            - OWNER
+            - AUTHORIZED_SIGNER
+        kycFlag:
+          type: string
+          example: 'Y'
+          description: Indicate the KycFlag of the party.
+        fcraFlag:
+          type: string
+          example: 'N'
+          description: Indicate fcraFlag of the party.
+        realTimeIDC:
+          type: string
+          example: 000000000025798
+          description: Indicate realTimeIDC of the party.
+        existingAccounts:
+          type: string
+          example: 'N'
+          description: Party has existing accounts
+        ewsScreenedFlag:
+          type: boolean
+          example: true
+          description: >-
+            Indicate whether the party is eligible for account origination
+            without any early warning risk sore.
+        bankEmployee:
+          type: string
+          example: 'N'
+          description: Indicate whether the party is an employee of the bank.
+        universityCode:
+          type: string
+          example: '4506698221'
+          description: Indicate universityCode of the party.
+        employeeCode:
+          type: string
+          example: PL05232
+          description: Indicate employeeCode of the party.
+        ewsRiskScore:
+          type: array
+          items:
+            $ref: '#/components/schemas/EwsRiskScore'
+        employmentInfo:
+          $ref: '#/components/schemas/EmploymentInfo'
+      example:
+        existingAccounts: 'N'
+        bankEmployee: 'N'
+        kycFlag: 'Y'
+        accountInitiator: true
+        debitCardPIN: '1234'
+        universityCode: '4506698221'
+        employeeCode: PL05232
+        ewsRiskScore:
+          - riskScoreType: riskScoreType
+            score: 5055
+            lowScoreRange: 0
+            highScoreRange: 8000
+          - riskScoreType: riskScoreType
+            score: 5055
+            lowScoreRange: 0
+            highScoreRange: 8000
+        pin: '1111'
+        partySubOwnership: PRIMARY
+        realTimeIDC: 000000000025798
+        fcraFlag: 'N'
+        ewsScreenedFlag: true
+    BusinessInfo:
+      type: object
+      required:
+        - businessName
+        - classification
+        - moneyServicesOption
+        - offerATMServices
+        - offerGamblingServices
+        - originationDate
+        - publiclyTraded
+      properties:
+        businessName:
+          type: string
+          example: Sam Jackson DBA Samuel L Jackson
+          description: Business name
+        originationDate:
+          type: string
+          format: date(yyyy-MM-dd)
+          example: '1989-06-14T00:00:00.000Z'
+          description: Business origination date
+        classification:
+          type: string
+          description: Business type classification codes from pick-list
+        publiclyTraded:
+          type: boolean
+          example: false
+          description: >-
+            Indicates if the company/business is publicly traded on any exchange
+            or if it is held private
+        offerATMServices:
+          type: boolean
+          example: false
+          description: >-
+            Indicates if the company/business provides a ATM serices on location
+            or elsewhere
+        offerGamblingServices:
+          type: boolean
+          example: false
+          description: >-
+            Indicates if the company/business provides any grambling related
+            avenues
+        moneyServicesOption:
+          $ref: '#/components/schemas/MoneyServicesOption'
+    ContactInfo:
+      type: object
+      required:
+        - email
+        - phone
+      properties:
+        phone:
+          type: array
+          items:
+            $ref: '#/components/schemas/TelephoneNumber'
+        email:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmailInfo'
+    TelephoneNumber:
+      type: object
+      required:
+        - number
+        - phoneType
+      properties:
+        phoneType:
+          type: string
+          example: HOME
+          description: 'Type of telephone number like HOME,BUSINESS,CELL.'
+          enum:
+            - HOME
+            - BUSINESS
+            - CELL
+        number:
+          type: string
+          example: 215-215-2155
+          description: Contact no of the party.
+      description: Contact details of party used for communication.
+    EmailInfo:
+      type: object
+      required:
+        - address
+        - emailType
+      properties:
+        emailType:
+          type: string
+          example: PRIMARY
+          description: Priority on which email address can be used for communication.
+          enum:
+            - PRIMARY
+            - SECONDARY
+        address:
+          type: string
+          example: email@pnc.com
+          description: Email address of the party used for communication.
+      description: Email details of the party used for communication.
+    MoneyServicesOption:
+      type: object
+      required:
+        - allowCashTransactions
+        - allowCheckCashing
+        - allowDomesticWireTransfers
+        - allowForex
+        - allowInternationalWireTransfer
+        - allowWireTransfers
+        - msbRevenuePercentage
+        - offerMonetaryInstruments
+      properties:
+        msbRevenuePercentage:
+          type: integer
+          example: 5
+          description: >-
+            Value of the total revenue that is generated from the MSB services
+            provided by the company/business
+        allowCashTransactions:
+          type: boolean
+          example: false
+          description: >-
+            Indicates if the company/business allows cash payments/transactions
+            of more than $3,000 (USD) per day
+        allowDomesticWireTransfers:
+          type: boolean
+          example: false
+          description: >-
+            Indicates if the company/business allows transfer of money using a
+            domenstic wire transfer
+        allowInternationalWireTransfer:
+          type: boolean
+          example: false
+          description: >-
+            Indicates if the company/business allows transfer of money using an
+            internation wire transfer
+        allowCheckCashing:
+          type: boolean
+          example: false
+          description: Indicates if the company/business provide a check cashing service
+        offerMonetaryInstruments:
+          type: boolean
+          example: false
+          description: Indicates if the company/business offer monetary intruments
+        allowWireTransfers:
+          type: boolean
+          example: false
+          description: >-
+            Indicates if the company/business allows transfer of money using any
+            other wire transfer mechanisms
+        allowForex:
+          type: boolean
+          example: false
+          description: >-
+            Indicates if the company/business allows currency exchange as one of
+            the services
+    Address:
+      type: object
+      required:
+        - addressLine1
+        - addressType
+        - city
+        - country
+        - edits
+        - monthsAtAddr
+        - stateProvince
+        - yearsAtAddr
+        - zip
+      properties:
+        custSeq:
+          type: string
+          example: Primary
+          description: Status of address
+          maxLength: 20
+        addressType:
+          type: string
+          example: MAILING
+          description: >-
+            Address type of party to identify on which address party can be
+            communicated.
+          enum:
+            - MAILING
+            - LEGAL
+        addressLine1:
+          type: string
+          example: 100 STANWIX ST
+          description: line1 of party address
+          minLength: 1
+          maxLength: 40
+        addressLine2:
+          type: string
+          example: APT C
+          description: line2 of party address
+        addressLine3:
+          type: string
+          example: Address line 3
+          description: line3 of party address
+        addressLine4:
+          type: string
+          example: Address line 4
+          description: line4 of party address
+        addressLine5:
+          type: string
+          example: address line 5
+          description: line5 of party address
+        city:
+          type: string
+          example: Pittsburgh
+          description: city to which party belongs.
+        stateProvince:
+          type: string
+          example: PA
+          description: state to which party belongs.
+        zip:
+          type: string
+          example: 12345-1234
+          description: zip code of the party address.
+        country:
+          type: string
+          example: USA
+          description: country of the given party address.
+        yearsAtAddr:
+          type: integer
+          example: 8
+          description: Years lived on this adress
+        monthsAtAddr:
+          type: integer
+          example: 10
+          description: Months in excess of years on this adress
+        edits:
+          type: integer
+          example: 0
+          description: Times address was edited
+    EwsRiskScore:
+      type: object
+      properties:
+        riskScoreType:
+          type: string
+          description: Indicate the type of risk.
+        score:
+          type: integer
+          example: 5055
+          description: Indicate the current score of the party.
+        lowScoreRange:
+          type: integer
+          example: 0
+        highScoreRange:
+          type: integer
+          example: 8000
+      description: Indicate early warning about risk score of the party.
+    AccountExtension:
+      type: object
+      required:
+        - signatureCardOption
+        - submittedByUserId
+      properties:
+        signatureCardOption:
+          type: string
+          example: P
+        submittedByUserId:
+          type: string
+          example: PP16194
+      example:
+        submittedByUserId: PP16194
+        signatureCardOption: P
+    AccountOriginationResponse:
+      type: object
+      properties:
+        requestId:
+          type: string
+          example: 548c70fa-de72-4931-b371-d4327c7275dc
+        applicationId:
+          type: string
+          example: '180523154735198'
+          description: >-
+            Application identification generated to track the status of account
+            origination.
+        accountOpenDate:
+          type: string
+          format: date(YYYY-mm-dd)
+          description: Date on which account has originated successfully.
+        bankNumber:
+          type: string
+          example: '32'
+        branch:
+          type: string
+          example: 08773
+          description: Branch identification in which account has originated.
+        pricingRegion:
+          type: string
+          example: H010
+        market:
+          type: string
+        costCenter:
+          type: string
+          example: 0008773
+        parties:
+          type: array
+          items:
+            $ref: '#/components/schemas/PartyResponse'
+        accounts:
+          type: array
+          example:
+            - accountNumber: 00000000003806608967
+              productCode: DDA
+              routingNumber: 043000096
+              accountType: DDA
+          items:
+            $ref: '#/components/schemas/AccountResponse'
+      example:
+        requestId: 548c70fa-de72-4931-b371-d4327c7275dc
+        applicationId: '180523154735198'
+        bankNumber: '32'
+        costCenter: 0008773
+        accountOpenDate: accountOpenDate
+        branch: 08773
+        pricingRegion: H010
+        parties:
+          - partyId: ASDEF0NGF.008
+            accountLinkKey: 001035865
+            debitCardNumber: '4430400020166314'
+            type: business
+            identities:
+              - identityType: SSN
+                additionalInfo: TN
+                identityValue: 345-54-8342
+                issueDate: '1995-11-18T00:00:00.000Z'
+                expirationDate: '2018-11-18T00:00:00.000Z'
+          - partyId: ASDEF0NGF.009
+            accountLinkKey: 001035865
+            debitCardNumber: '4430400020166314'
+            type: business
+            identities:
+              - identityType: SSN
+                additionalInfo: TN
+                identityValue: 345-54-8342
+                issueDate: '1995-11-18T00:00:00.000Z'
+                expirationDate: '2018-11-18T00:00:00.000Z'
+        accounts:
+          - accountNumber: 00000000003806608967
+            productCode: D1
+            routingNumber: 043000096
+            accountType: DDA
+    PartyResponse:
+      type: object
+      properties:
+        partyId:
+          type: string
+          example: ASDEF0NGF.008
+          description: 'CIF key of the parties, who linked to newly originated account.'
+        accountLinkKey:
+          type: string
+          example: 001035865
+        debitCardNumber:
+          type: string
+          example: '4430400020166314'
+        type:
+          type: string
+          example: business
+        identities:
+          type: array
+          items:
+            $ref: '#/components/schemas/PartyIdentityResponse'
+      example:
+        accountLinkKey: 001035865
+        debitCardNumber: '4430400020166314'
+        identities:
+          - identityType: SSN
+            additionalInfo: TN
+            identityValue: 345-54-8342
+            issueDate: '1995-11-18T00:00:00.000Z'
+            expirationDate: '2018-11-18T00:00:00.000Z'
+          - identityType: SSN
+            additionalInfo: TN
+            identityValue: 345-54-8342
+            issueDate: '1995-11-18T00:00:00.000Z'
+            expirationDate: '2018-11-18T00:00:00.000Z'
+        partyId: ASDEF0NGF.008
+    PartyIdentityResponse:
+      type: object
+      properties:
+        identityType:
+          type: string
+          example: SSN
+        identityValue:
+          type: string
+          example: 345-54-8342
+        additionalInfo:
+          type: string
+          example: TN
+        issueDate:
+          type: string
+          example: '1995-11-18T00:00:00.000Z'
+        expirationDate:
+          type: string
+          example: '2018-11-18T00:00:00.000Z'
+      example:
+        identityType: SSN
+        additionalInfo: TN
+        identityValue: 345-54-8342
+        issueDate: '1995-11-18T00:00:00.000Z'
+        expirationDate: '2018-11-18T00:00:00.000Z'
+    Funding:
+      type: object
+      properties:
+        source:
+          type: string
+          example: External Account
+          description: >-
+            Indicate the account used for funding is internal account or
+            external account.
+        initialDeposit:
+          type: integer
+          example: 1000
+          description: Indicate the amount used as initial deposit for account creation.
+        transferFromCode:
+          type: string
+          description: >-
+            Indicate transfer from code used for securely transfering amount to
+            newly created account
+        externalAccount:
+          $ref: '#/components/schemas/ExternalAccount'
+        creditCard:
+          $ref: '#/components/schemas/CreditCard'
+      description: Funding options for initial deposit during account creation.
+    ExternalAccount:
+      type: object
+      properties:
+        fundingAccountNumber:
+          type: string
+          example: '4965890543'
+          description: >-
+            Account number of external account for funding the initial deposit
+            for newly created account.
+        fundingRoutingNumber:
+          type: string
+          example: '4965890543'
+          description: >-
+            Routing number of external account for funding the initial deposit
+            for newly created account.
+      description: >-
+        External account details that used for funding the initial deposit for
+        newly created account
+    CreditCard:
+      type: object
+      properties:
+        brand:
+          type: string
+          example: Visa
+          description: >-
+            Type of credit card used for funding the initial deposit for newly
+            created account like Visa,Master.
+        number:
+          type: string
+          example: '496589054335677'
+          description: >-
+            Credit card number for funding initial deposit for newly created
+            account.
+        expirationMonth:
+          type: string
+          example: '6'
+          description: >-
+            Expiry month of credit card used for funding the initial deposit
+            for  newly created account.
+        expirationYear:
+          type: string
+          example: '2021'
+          description: >-
+            Expiry year of credit card used for funding the initial deposit for 
+            newly created account.
+        name:
+          type: string
+          example: Rohit Sharma
+          description: >-
+            Customer name on credit card used for funding the initial deposit
+            for newly created account.
+      description: >-
+        Credit card details used for funding the initial deposit for newly
+        created account.
+    AccountResponse:
+      type: object
+      properties:
+        accountNumber:
+          type: string
+          example: 00000000001070092179
+        productCode:
+          type: string
+          example: DDA
+        routingNumber:
+          type: string
+          example: 043000096
+        accountType:
+          type: string
+          example: DDA
+    Callback:
+      type: object
+      properties:
+        uri:
+          type: string
+          example: 'https://hostName/applicationAccountCallBack'
+          description: Callback uri to get the status of the account origination.
+    ErrorDto:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Error code returned by OBP.
+        message:
+          type: string
+          description: Error message returned by OBP.
+    ErrorDtoWithDownstreamErrors:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Error code returned by OBP.
+        message:
+          type: string
+          description: Error message returned by OBP.
+        internal:
+          $ref: '#/components/schemas/InternalErrorsDto'
+    InternalErrorsDto:
+      type: object
+      properties:
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/InternalErrorDto'
+      description: List of error code and error message received from downstream system.
+    InternalErrorDto:
+      type: object
+      properties:
+        type:
+          type: string
+          example: Non Recoverable
+          description: >-
+            Type of error received from downstream system, whether it will
+            Recoverable or NonRecoverable.
+        code:
+          type: string
+          example: '700'
+          description: Error code received from downstream system.
+        description:
+          type: string
+          example: Invalid Input PartyExtension existingAccounts missing in request
+          description: Error message received from downstream system.
+        system:
+          type: string
+          example: Account Application API Service
+          description: 'Information about the system, whcih is responsible for failure.'
+    inline_response_201:
+      properties:
+        status:
+          type: string
+          description: Status will be SUCCESS if the account is originated successfully.
+          enum:
+            - SUCCESS
+        data:
+          $ref: '#/components/schemas/AccountOriginationResponse'
+    inline_response_202:
+      properties:
+        status:
+          type: string
+          description: >-
+            Status will be PARTIAL as the request has been accepted for
+            processing.
+          enum:
+            - PARTIAL
+        data:
+          $ref: '#/components/schemas/AccountOriginationResponse'
+        errors:
+          $ref: '#/components/schemas/ErrorDtoWithDownstreamErrors'
+    inline_response_400:
+      properties:
+        status:
+          type: string
+          description: failure status
+          enum:
+            - ERROR
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDto'
+    inline_response_500:
+      properties:
+        status:
+          type: string
+          description: failure status
+          enum:
+            - ERROR
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDtoWithDownstreamErrors'
+    inline_response_201_1:
+      properties:
+        status:
+          type: string
+          description: Status will be SUCCESS if the account is originated successfully.
+          enum:
+            - SUCCESS
+        data:
+          $ref: '#/components/schemas/AccountOriginationResponse'
+    inline_response_202_1:
+      properties:
+        status:
+          type: string
+          description: >-
+            Status will be PARTIAL as the request has been accepted for
+            processing.
+          enum:
+            - PARTIAL
+        data:
+          $ref: '#/components/schemas/AccountOriginationResponse'
+        errors:
+          $ref: '#/components/schemas/ErrorDtoWithDownstreamErrors'
+    inline_response_201_2:
+      properties:
+        status:
+          type: string
+          description: Status will be SUCCESS if the account is originated successfully.
+          enum:
+            - SUCCESS
+        data:
+          $ref: '#/components/schemas/AccountOriginationResponse'
+    inline_response_202_2:
+      properties:
+        status:
+          type: string
+          description: >-
+            Status will be PARTIAL as the request has been accepted for
+            processing.
+          enum:
+            - PARTIAL
+        data:
+          $ref: '#/components/schemas/AccountOriginationResponse'
+        errors:
+          $ref: '#/components/schemas/ErrorDtoWithDownstreamErrors'
+    inline_response_201_3:
+      properties:
+        status:
+          type: string
+          description: Status will be SUCCESS if the account is originated successfully.
+          enum:
+            - SUCCESS
+        data:
+          $ref: '#/components/schemas/AccountOriginationResponse'
+    inline_response_202_3:
+      properties:
+        status:
+          type: string
+          description: >-
+            Status will be PARTIAL as the request has been accepted for
+            processing.
+          enum:
+            - PARTIAL
+        data:
+          $ref: '#/components/schemas/AccountOriginationResponse'
+        errors:
+          $ref: '#/components/schemas/ErrorDtoWithDownstreamErrors'
+    inline_response_400_1:
+      properties:
+        status:
+          type: string
+          description: failure status
+          enum:
+            - ERROR
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDto'
+    inline_response_500_1:
+      properties:
+        status:
+          type: string
+          description: failure status
+          enum:
+            - ERROR
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDtoWithDownstreamErrors'
