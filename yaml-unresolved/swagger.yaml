@@ -5,7 +5,7 @@ info:
     and existing customer. A new customer, first customer is originated,then
     accounts are created and linked to the created customer. If customer is an
     existing customer, accounts are created and linked to existing customer.
-    Subject to change.
+    Subject to change. test changes
   version: 0.1.0-oas3
   title: Credit Card Booking Specification
 tags:
